@@ -1,0 +1,370 @@
+
+<script>
+window.MathJax = {tex:{inlineMath:[['$','$']],displayMath:[['\\[','\\]']]}};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+<style>
+.paper{max-width:680px;margin:1.5rem auto 3rem;background:#fefcf6;border:0.5px solid #c9bf9f;padding:3rem 3.5rem;font-family:Georgia,'Times New Roman',serif;font-size:10.5pt;line-height:1.82;color:#1a1710}
+.paper h1,.paper h2,.paper h3,.paper p,.paper div,.paper span,.paper td{font-style:normal}
+h1.title{font-size:16pt;font-weight:bold;text-align:center;margin:0 0 0.3rem}
+.byline{text-align:center;font-size:9.5pt;color:#777;margin-bottom:1.3rem}
+hr.rule{border:none;border-top:1px solid #c9bf9f;margin:1.2rem 0}
+.abs-head{font-size:8.5pt;font-weight:bold;text-transform:uppercase;letter-spacing:0.12em;text-align:center;display:block;margin-bottom:0.5rem}
+.abstract{margin:0 1.6rem 0.8rem;font-size:9.5pt;text-align:justify}
+.chain{text-align:center;margin:0.5rem 0;font-size:9.5pt}
+h2.sec{font-size:11pt;font-weight:bold;margin:2rem 0 0.55rem;padding-bottom:0.18rem;border-bottom:0.5px solid #c9bf9f}
+h3.sub{font-size:10.5pt;font-weight:bold;margin:1.1rem 0 0.3rem}
+p{margin:0 0 0.72rem;text-align:justify;hyphens:auto}
+table.eq{width:100%;margin:0.85rem 0;border-collapse:collapse}
+td.eqc{text-align:center;width:100%;vertical-align:middle;padding:0}
+td.eqn{white-space:nowrap;text-align:right;padding-left:0.8rem;font-size:9.5pt;color:#555;vertical-align:middle;min-width:2.8rem}
+.fig{border:1.5px dashed #c9bf9f;background:#f5f1e5;border-radius:3px;padding:1.1rem 1.4rem;margin:1rem 0;text-align:center}
+.fig-lbl{font-weight:bold;font-size:9.5pt;margin-bottom:0.25rem}
+.fig-cap{font-size:9pt;color:#555}
+.plot-wrap{margin:1rem 0}
+.plot-cap{font-size:9pt;color:#555;text-align:left;margin-top:0.35rem}
+.plot-cap b{font-weight:bold}
+.two-plots{display:flex;gap:1rem;margin:1rem 0}
+.two-plots .plot-wrap{flex:1;margin:0}
+pre.code{font-family:'Courier New',Courier,monospace;font-size:8.3pt;background:#f0ede3;border:0.5px solid #c9bf9f;padding:0.85rem 1rem;margin:0.9rem 0;line-height:1.55;overflow-x:auto;white-space:pre;border-radius:2px;color:#1a1710}
+</style>
+
+<div class="paper">
+<h1 class="title">Why Does Robustness Reduce Superposition?</h1>
+<div class="byline">Draft — not for circulation</div>
+<hr class="rule">
+<span class="abs-head">Abstract</span>
+<div class="abstract">
+<p>The study of adversarial examples and their origins remains an open area of research. Mechanistic interpretability, and superposition in particular, offers new avenues for approaching this problem. Gorton &amp; Lewis (2025) demonstrate that adversarial examples arise from superposition and show empirically that adversarial training reduces superposition, yet provide no mechanistic account of why this occurs. We present an empirical explanation inspired by the feature taxonomy of Ilyas et al. (2019), tracing the following chain of causalities:</p>
+<div class="chain">adversarial training abandons non-robust features &thinsp;&rarr;&thinsp; fewer total features to represent &thinsp;&rarr;&thinsp; less superposition.</div>
+</div>
+<hr class="rule">
+
+<h2 class="sec">1. Background</h2>
+<h3 class="sub">1.1 Superposition</h3>
+<p>Superposition occurs when a model encodes more features than there are neurons (Elhage et al., 2022). We control it by intervening on sparsity when training toy models, following the setup of Elhage et al. (2022). Sparsity is governed by a threshold $S \in [0,1]$, which determines the activity of each component of the input $x \in \mathbb{R}^m$:</p>
+<table class="eq"><tr><td class="eqc">\[ [x]_i = \begin{cases} x_i & \text{if } x_i > S \\ 0 & \text{otherwise} \end{cases} \]</td><td class="eqn"></td></tr></table>
+<p>A feature $x_i$ is therefore active with probability $p(\mathcal{A}) = 1 - S$.</p>
+<h3 class="sub">1.2 Interference</h3>
+<p>Elhage et al. (2022) define interference as the geometry of features in activation space, measured by the degree of non-orthogonality between feature directions. For two feature directions $W_{:,i}, W_{:,j} \in \mathbb{R}^n$, they are orthogonal when $W_{:,i}^\top W_{:,j} = 0$, and exhibit interference when $W_{:,i}^\top W_{:,j} \neq 0$. The more strictly positive this inner product, the more likely spurious activations are to corrupt the reconstruction of feature $i$, constituting harmful interference.</p>
+<h3 class="sub">1.3 Adversarial Examples</h3>
+<p>An adversarial example is a perturbation of $x \in \mathbb{R}^m$, imperceptible to humans, that maximizes the MSE loss within an $\ell_2$ ball of radius $\varepsilon$:</p>
+<table class="eq"><tr><td class="eqc">\[ x_{\text{adv}} = x + \arg\max_{\|\delta\|_2 \leq \varepsilon}\; \mathcal{L}(x + \varepsilon \cdot \nabla_x \mathcal{L}) \]</td><td class="eqn">(1)</td></tr></table>
+<p>Following Gorton &amp; Lewis (2025), a small noise term is added to $x$ prior to attack generation to avoid gradient masking, after which a one-step $\ell_2$ gradient attack is applied.</p>
+
+<h2 class="sec">2. Setup</h2>
+<h3 class="sub">2.1 Toy Models</h3>
+<p>We adopt the simplified toy model of Elhage et al. (2022) as employed by Gorton &amp; Lewis (2025). Let $W \in \mathbb{R}^{n \times m}$, with $n = 20$ and $m = 100$. Given inputs $x \sim \mathcal{D}$, $\mathcal{D} \subset \mathbb{R}^m$, hidden representations are computed as $h = Wx \in \mathbb{R}^n$ and features are reconstructed via $\hat{x} = \text{ReLU}(W^\top h + b)$. The training objective is $\mathcal{L} = \|x - \hat{x}\|_2^2$. Higher sparsity leads the model to represent more features and, consequently, to exhibit more superposition.</p>
+<h3 class="sub">2.2 Measuring Superposition</h3>
+<p>Elhage et al. (2022) quantify superposition as $n/\|W\|_F$, the number of dimensions per feature. We take the reciprocal to obtain the number of features per dimension, a more directly interpretable quantity:</p>
+<table class="eq"><tr><td class="eqc">\[ \Phi = \|W\|_F \,/\, n \]</td><td class="eqn">(2)</td></tr></table>
+<p>$\Phi = 1$ indicates no superposition; $\Phi > 1$ indicates superposition, which increases monotonically with sparsity.</p>
+<h3 class="sub">2.3 Representational Power</h3>
+<p>We define representational power as the squared Frobenius norm of $W$, measuring the total energy distributed across all feature directions $W_{:,i}$:</p>
+<table class="eq"><tr><td class="eqc">\[ P = \|W\|_F^2 \]</td><td class="eqn">(3)</td></tr></table>
+<h3 class="sub">2.4 Feature Representation Threshold</h3>
+<p>To determine which features are represented and which are dropped, we measure the norm $\|W_{:,i}\|_2$ of each feature column following Elhage et al. (2022), applying the threshold $\tau = 0.01$:</p>
+<table class="eq"><tr><td class="eqc">\[ \|W_{:,i}\|_2 \begin{cases} < \tau & \Rightarrow \text{feature } i \text{ is dropped} \\ \geq \tau & \Rightarrow \text{feature } i \text{ is represented} \end{cases} \]</td><td class="eqn">(4)</td></tr></table>
+<h3 class="sub">2.5 Measuring Interference</h3>
+<p>Let $G = WW^\top \in \mathbb{R}^{n \times n}$ be the Gram matrix of $W$. The interference matrix is obtained by zeroing the diagonal, retaining only pairwise cross-feature terms:</p>
+<table class="eq"><tr><td class="eqc">\[ I = G - \operatorname{diag}(G) \]</td><td class="eqn">(5)</td></tr></table>
+<h3 class="sub">2.6 Adversarial Training Protocol</h3>
+<p>Following Gorton &amp; Lewis (2025), models are trained over a sweep of sparsity levels on a mixture of clean and adversarial examples:</p>
+<table class="eq"><tr><td class="eqc">\[ \mathcal{L}_{\text{adv}} = \alpha \cdot \mathcal{L}(x) + (1 - \alpha) \cdot \mathcal{L}(x_{\text{adv}}) \]</td><td class="eqn">(6)</td></tr></table>
+<p>We set $\alpha = 0.5$ to balance clean and robust accuracy and prevent collapse in either regime. Attacks are generated via (1) with $\varepsilon = \frac{0.1}{B}\sum_{x \in \mathcal{B}}\|x\|_2$, where $\mathcal{B}$ denotes the training batch of size $B$. Models are trained for $150{,}000$ steps at a learning rate of $10^{-3}$.</p>
+<h3 class="sub">2.7 Sparsity Sweep</h3>
+<p>To cleanly isolate our theory empirically, we exclude both extremes of the sparsity range. At $S \leq 0.7$, models drop most features regardless of training regime, as sparsity is too low to motivate superposition and interference is easily avoided. At $S \geq 0.98$, both models represent all features at negligible interference cost. We therefore sweep over $\mathcal{S} = \{0.78,\, 0.80,\, 0.88,\, 0.90\}$, the range in which the adversarially trained model consistently drops more features than the standard model—an effect we attribute to the presence of distinct feature classes, rather than to the routine optimization of feature benefit against interference cost.</p>
+
+<h2 class="sec">3. Representational Power and Feature Dropping</h2>
+<p>We train two models over $\mathcal{S}$—one under the adversarial training protocol (6) and one under standard training—with $x \sim \mathcal{U}([0,1]^m)$. We measure representational power (3) and the number of dropped features (4) for each.</p>
+
+<p>Computing representational power across our sparsity sweep, we observe a key finding: adversarially trained models consistently exhibit lower representational power than their standardly trained counterparts.</p>
+
+<div class="plot-wrap">
+  <svg id="fig1" viewBox="0 0 600 220" style="width:100%;display:block"></svg>
+  <div class="plot-cap"><b>Figure 1.</b> Representational power $P$ (3) across $\mathcal{S}$ for both training regimes. The adversarially trained model consistently exhibits lower representational power, with the gap widening as sparsity increases.</div>
+</div>
+<p>To investigate why the adversarially trained model exhibits lower representational power, we compute $\|W_{:,i}\|_2$ for all $i$. Applying (4), we find that adversarially trained models drop more features than standardly trained models across all $S \in \mathcal{S}$.</p>
+<div class="plot-wrap">
+  <svg id="fig2" viewBox="0 0 600 220" style="width:100%;display:block"></svg>
+  <div class="plot-cap"><b>Figure 2.</b> Number of features dropped at each $S \in \mathcal{S}$ under adversarial and standard training. The adversarially trained model drops more features at every sparsity level.</div>
+</div>
+<p>We examine the dropped features through the lens of interference. Normalizing $W$ and deducing the interference matrix (5), we compute each column's total interference with the rest, then average across retained and dropped groups separately. We find that dropped features either exhibit higher interference than retained ones, or—when both groups are negative—the adversarial model preferentially retains those closest to $-1$.</p>
+<div class="plot-wrap">
+  <svg id="fig3" viewBox="0 0 600 220" style="width:100%;display:block"></svg>
+  <div class="plot-cap"><b>Figure 3.</b> Mean interference of kept versus dropped features across $\mathcal{S}$ for the adversarially trained model. Dropped features consistently exhibit higher or less-negative mean interference than retained features.</div>
+</div>
+<p>These results establish that adversarially trained models reduce superposition by dropping more features than their standardly trained counterparts, and that the dropped features are those the model identifies as geometrically costly. The preference for retaining features with interference nearest to $-1$ is particularly telling: a value of $-1$ corresponds to antipodal feature directions, the configuration that maximally suppresses cross-feature activation. This aligns with the observation of Elhage et al. (2022) that models preferentially pack features into opposing directions to minimize spurious reconstruction. A key question remains: do the dropped features correspond to the robust or non-robust classes of Ilyas et al. (2019) and Li &amp; Li (2025)?</p>
+
+<h2 class="sec">4. Robust and Non-Robust Feature Recovery</h2>
+<h3 class="sub">4.1 Structured Data Construction</h3>
+<p>To answer this question, Section 3 must be reproduced under a data distribution where the ground-truth identity of robust and non-robust features is known a priori. We therefore construct a synthetic dataset that operationalizes the feature taxonomy of Ilyas et al. (2019) and Li &amp; Li (2025) under the constraints of our toy model setting.</p>
+<p>Robust features are broadly characterized as high-signal directions that encode stable, generalizable patterns, whereas non-robust features are low-amplitude, high-frequency directions that are predictive under clean inputs but easily disrupted by adversarial perturbations. More precisely, Ilyas et al. (2019) show that models depend substantially on non-robust features for classification, yet those features cease to correlate with the correct label after an attack. Li &amp; Li (2025) further characterize this taxonomy by establishing that robust features carry greater signal amplitude than non-robust ones, while non-robust features are denser across the feature space.</p>
+<p>We note, however, that our setting differs substantially from the classification context in which this taxonomy was originally defined. Our experiments are conducted on toy models optimizing a reconstruction loss (MSE), which bears structural similarities to linear regression but falls well short of the complexity of classification over real-world data with semantic labels. The instantiation of robust and non-robust features below is therefore necessarily an approximation made under these constraints.</p>
+<p>We instantiate this taxonomy as follows. Let $x \sim \mathcal{U}([0,1]^m)$ with the sparsity mask of §1.1 applied. A uniformly random permutation $\pi$ of $\{1, \ldots, m\}$ partitions the feature indices into a robust set $\mathcal{R} = \{\pi(1), \ldots, \pi(n_r)\}$ and a non-robust set $\mathcal{N} = \{\pi(n_r + 1), \ldots, \pi(m)\}$, with $|\mathcal{R}| = n_r$ and $|\mathcal{N}| = m - n_r$. Each partition is then amplitude-scaled according to:</p>
+<table class="eq"><tr><td class="eqc">\[ x_{:,i} \;\leftarrow\; \begin{cases} a_r \cdot x_{:,i} & i \in \mathcal{R} \\ a_{nr} \cdot x_{:,i} & i \in \mathcal{N} \end{cases} \]</td><td class="eqn">(7)</td></tr></table>
+<p>with $a_r = 6.0$ and $a_{nr} = 0.2$. Robust features thus carry high amplitude—strong, stable signal—while non-robust features carry low amplitude, making them more susceptible to erasure under $\ell_2$ perturbations. The partition $(\mathcal{R}, \mathcal{N})$ is retained at generation time and serves as the ground truth against which the model's dropped feature indices are evaluated. The full data generation procedure is given below.</p>
+<pre class="code">def create_data(sparsity, num_samples, n_features=100, n_robust=65):
+    values = torch.rand(num_samples, n_features)
+    mask = values > sparsity
+    x = values * mask.float()
+    pi = torch.randperm(n_features)
+    robust_idx     = pi[:n_robust]
+    non_robust_idx = pi[n_robust:]
+    x[:, robust_idx]     *= 6.0
+    x[:, non_robust_idx] *= 0.2
+    return x, x.clone(), robust_idx, non_robust_idx</pre>
+<p>To remain consistent with the definition of Li &amp; Li (2025), we set $|\mathcal{N}| > |\mathcal{R}|$, making non-robust features denser than robust ones.</p>
+
+<h3 class="sub">4.2 Results</h3>
+<p>Training on data generated via (7), we obtain the same findings as in Section 3. The structured data, however, yields a substantially cleaner pattern: the adversarially trained model drops exactly $|\mathcal{N}| = 70$ features at every $S \in \mathcal{S}$, regardless of sparsity level. Notably, at $S \in \{0.88,\, 0.90\}$, the standardly trained model drops no features at all—yet the adversarially trained model still drops exactly $|\mathcal{N}|$—indicating that, despite the model having enough sparsity to represent all features, adversarial training remains highly sensitive to non-robust features. This sensitivity being sparsity-invariant suggests that those features directly interfere with the model's ultimate goal:</p>
+<table class="eq"><tr><td class="eqc">\[ \min_\theta\; \mathbb{E}_{x \sim \mathcal{D}}\!\left[\mathcal{L}(x_{\text{adv}};\,\theta)\right] \]</td><td class="eqn"></td></tr></table>
+
+<div class="two-plots">
+  <div class="plot-wrap">
+    <svg id="fig4" viewBox="0 0 290 210" style="width:100%;display:block"></svg>
+    <div class="plot-cap"><b>Figure 4.</b> Features dropped at each $S \in \mathcal{S}$ under structured data. The adversarially trained model drops exactly $|\mathcal{N}| = 70$ at every sparsity level.</div>
+  </div>
+  <div class="plot-wrap">
+    <svg id="fig5" viewBox="0 0 290 210" style="width:100%;display:block"></svg>
+    <div class="plot-cap"><b>Figure 5.</b> Mean interference of kept versus dropped features across $\mathcal{S}$ for the adversarially trained model under structured data. Dropped features carry positive net interference; kept features carry negative net interference.</div>
+  </div>
+</div>
+
+<p>In order to determine whether or not the dropped features are primarily the non-robust ones, we map the ground truth indices of non-robust features retrieved at data creation time and compare them to the indices of the dropped features retrieved at the end of training. We find that they correspond exactly to $\mathcal{N}$ at every $S \in \mathcal{S}$, confirming that the adversarial model explicitly targets the non-robust feature set.</p>
+
+<div class="plot-wrap">
+  <svg id="fig6" style="width:100%;display:block"></svg>
+  <div class="plot-cap"><b>Figure 6.</b> Ground truth partition $(\mathcal{R}, \mathcal{N})$ versus model-dropped indices across $\mathcal{S}$. For each sparsity level, the top row shows the ground truth and the bottom row shows the adversarial model output. Identical patterns confirm that the adversarial model precisely targets $\mathcal{N}$ at every sparsity level.</div>
+</div>
+
+<h3 class="sub">4.3 Why Non-Robust Features Are Dropped: A Theoretical Perspective</h3>
+
+<p>Our empirical findings raise a natural question: why do adversarially trained models systematically drop non-robust features? We offer a theoretical explanation grounded in the properties of non-robust features under adversarial attack. The argument is conceptual rather than a formal derivation, but it provides intuition for the observed behavior.</p>
+
+<p>Let $\mathcal{D} = \{(x, y)\}$ with $y = x$, parameters $\theta$, loss $\mathcal{L}$, and adversarial examples $x_{\text{adv}}$ generated via an $\ell_2$-bounded attack. We conceptualize the adversarial training's primary training objective as:</p>
+<table class="eq"><tr><td class="eqc">\[ \min_\theta\; \mathbb{E}_{(x,y) \sim \mathcal{D}}\!\left[\mathcal{L}(x_{\text{adv}}, y;\, \theta)\right] \]</td><td class="eqn">(8)</td></tr></table>
+
+<p>Building on Ilyas et al. (2019), we define a feature $i$ as non-robust if it is highly sensitive to adversarial perturbations such that $x_{\text{adv},i} \not\approx x_i$, breaking the correspondence with its target $y_i = x_i$. Denote the set of non-robust features $\mathcal{N} \subset [m]$.</p>
+
+<p>We hypothesize that features in $\mathcal{N}$ interfere with the adversarial training objective via two complementary mechanisms:</p>
+
+<p><b>Direct loss inflation.</b> Since $\mathcal{L} = \|y - \hat{x}\|_2^2 = \sum_i (y_i - \hat{x}_i)^2$ and $y$ is fixed under attack, each flipped feature $i \in \mathcal{N}$ contributes a non-zero penalty term to the loss. Even a single flipped feature increases $\mathcal{L}$, and the effect compounds: inputs with more non-robust features incur proportionally higher loss. Let $k$ denote the number of non-robust features flipped per adversarial example. This gives:</p>
+<table class="eq"><tr><td class="eqc">\[ \mathcal{L}_{\text{adv}}(x_{\text{adv}}, k=0) < \mathcal{L}_{\text{adv}}(x_{\text{adv}}, k=1) < \cdots < \mathcal{L}_{\text{adv}}(x_{\text{adv}}, k=|\mathcal{N}|) \]</td><td class="eqn">(9)</td></tr></table>
+<p>Dropping all features in $\mathcal{N}$ eliminates these penalty contributions entirely, and gives $P(\mathcal{N}_{\text{flipped}} \mid x_{\text{adv}})=0$—the probability that an adversarial example has flipped non-robust features—thus enabling the model to minimize (8) freely.</p>
+
+<p><b>Costly interference.</b> Non-robust features exhibit costly feature geometry, as evidenced by their mean total interference lying in the range $[0, 2)$ compared to retained features clustering near $-1$. This costly geometry induces spurious cross-feature activations that corrupt the reconstruction and further inflate $\mathcal{L}$.</p>
+
+<p>Together, these two mechanisms explain why adversarially trained models prune non-robust features: they are the primary obstacle to minimizing the adversarial objective, and removing them reduces superposition while improving robustness.</p>
+
+<h2 class="sec">5. Discussion</h2>
+<p>We have established a clean causal chain explaining why adversarial training reduces superposition: adversarially trained models drop more features than standard models, leaving fewer features to encode in the same dimensional space, and thus reducing superposition. We further demonstrated that the dropped features correspond precisely to non-robust features as defined by Ilyas et al. (2019).</p>
+
+<p>These results answer our core question but raise new ones. First, why do adversarially trained models preserve the geometry of remaining features, keeping interference values largely intact (Gorton &amp; Lewis, 2025)? Second, why does adversarial training preferentially align features in opposite directions, enabling antipodal superposition? Understanding these emergent behaviors would deepen our mechanistic account of adversarial robustness.</p>
+
+<p>Our findings remain constrained by the toy model setting. The natural next step is validating our theory on real-world models using mechanistic tools like sparse autoencoders (SAEs), moving beyond controlled toy settings.</p>
+
+<p>Recent work at the intersection of robustness and interpretability suggests a promising research direction. We are particularly interested in two questions: First, does superposition reduction in real adversarial models translate to meaningfully improved interpretability? Second, can we intentionally leverage the robust/non-robust feature trade-off to reduce polysemanticity in a controlled manner, without sacrificing critical representations?</p>
+
+<h2 class="sec">References</h2>
+<div style="margin-top:1rem;line-height:1.8;">
+<p style="margin-bottom:0.8rem;"><span style="font-weight:bold;">[1]</span> Ilyas, A., Santurkar, S., Tsipras, D., Engstrom, L., Tran, B., &amp; Madry, A. (2019). Adversarial examples are not bugs, they are features. <em>NeurIPS</em>.</p>
+
+<p style="margin-bottom:0.8rem;"><span style="font-weight:bold;">[2]</span> Elhage, N., Hume, T., Olsson, C., Schiefer, N., Henighan, T., Kravec, S., Hatfield-Dodds, Z., Lasenby, R., Drain, D., Chen, C., Grosse, R., McCandlish, S., Kaplan, J., Amodei, D., Wattenberg, M., &amp; Olah, C. (2022). Toy models of superposition. <em>arXiv preprint</em> arXiv:2209.10652. <a href="https://arxiv.org/abs/2209.10652" style="color:#2563eb;text-decoration:none;">https://arxiv.org/abs/2209.10652</a></p>
+
+<p style="margin-bottom:0.8rem;"><span style="font-weight:bold;">[3]</span> Li, B. &amp; Li, Y. (2025). Adversarial training can provably improve robustness: Theoretical analysis of feature learning process under structured data. <em>arXiv preprint</em> arXiv:2410.08503. <a href="https://arxiv.org/abs/2410.08503" style="color:#2563eb;text-decoration:none;">https://arxiv.org/abs/2410.08503</a></p>
+
+<p style="margin-bottom:0.8rem;"><span style="font-weight:bold;">[4]</span> Gorton, L. &amp; Lewis, O. (2025). Adversarial examples are not bugs, they are superposition. <em>arXiv preprint</em> arXiv:2508.17456. <a href="https://arxiv.org/abs/2508.17456" style="color:#2563eb;text-decoration:none;">https://arxiv.org/abs/2508.17456</a></p>
+</div>
+
+<h2 class="sec">Citation</h2>
+<p style="margin-top:1rem;">Please cite this work as:</p>
+
+<div style="background:#f5f1e5;border:0.5px solid #c9bf9f;padding:15px;border-radius:3px;margin:1rem 0;font-family:monospace;font-size:11px;line-height:1.6;">
+Elimadi, A. "Adversarial Training Reduces Superposition Through Non-Robust Feature Pruning", 2026.
+https://adamelimadi.github.io/superposition-paper/
+</div>
+
+<p style="margin-top:1rem;">Or use the BibTeX citation:</p>
+
+<div style="background:#f5f1e5;border:0.5px solid #c9bf9f;padding:15px;border-radius:3px;margin:1rem 0;font-family:monospace;font-size:10px;line-height:1.6;overflow-x:auto;">
+@misc{Elimadi2026superposition,<br/>
+&nbsp;&nbsp;author&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;= {Adam Elimadi},<br/>
+&nbsp;&nbsp;title&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;= {Adversarial Training Reduces Superposition Through<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Non-Robust Feature Pruning},<br/>
+&nbsp;&nbsp;year&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;= {2026},<br/>
+&nbsp;&nbsp;howpublished = {\url{https://adamelimadi.github.io/superposition-paper/}}<br/>
+}
+</div>
+
+</div>
+
+<script>
+(function(){
+  const Sl=['0.78','0.80','0.88','0.90'];
+  const rep_c=[43.395,45.727,62.660,71.619];
+  const rep_a=[39.937,40.746,51.296,57.836];
+  const drp_c_s3=[24,37,34,23], drp_a_s3=[54,51,47,33];
+  const kept_a_s3=[-1.0080,-0.7764,-0.9989,-1.0088];
+  const drop_a_s3=[0.1345,-0.4111,0.3814,-0.1325];
+  const drp_c_s4=[62,55,0,0], drp_a_s4=[70,70,70,70];
+  const kept_a_s4=[-1.0466,-0.9780,-1.4557,-1.0563];
+  const drop_a_s4=[0.6924,0.0341,1.7693,1.6281];
+
+  const ADV='#D85A30', CLN='#1D9E75';
+  const GRID='rgba(0,0,0,0.06)', AX='rgba(0,0,0,0.18)', TXT='#777';
+  const SF="font-family:system-ui,Arial,sans-serif;";
+  const GF="font-family:Georgia,'Times New Roman',serif;";
+
+  // ── FIG 1: Rep Power ────────────────────────────────
+  (function(){
+    const W=600,H=220,mt=32,mb=44,ml=56,mr=24;
+    const cW=W-ml-mr,ch=H-mt-mb;
+    const ymin=34,ymax=76;
+    const ys=v=>mt+ch-(v-ymin)/(ymax-ymin)*ch;
+    const xs=i=>ml+(i/3)*cW;
+    let h='';
+    h+=`<rect x="${ml}" y="${mt}" width="${cW}" height="${ch}" fill="white"/>`;
+    h+=`<line x1="${ml+cW-195}" y1="${mt-18}" x2="${ml+cW-177}" y2="${mt-18}" stroke="${CLN}" stroke-width="1.5"/>`;
+    h+=`<circle cx="${ml+cW-186}" cy="${mt-18}" r="2.8" fill="${CLN}"/>`;
+    h+=`<text x="${ml+cW-172}" y="${mt-14}" style="${SF}font-size:8.5px;fill:${TXT}">Standard</text>`;
+    h+=`<line x1="${ml+cW-100}" y1="${mt-18}" x2="${ml+cW-82}" y2="${mt-18}" stroke="${ADV}" stroke-width="1.5"/>`;
+    h+=`<circle cx="${ml+cW-91}" cy="${mt-18}" r="2.8" fill="${ADV}"/>`;
+    h+=`<text x="${ml+cW-77}" y="${mt-14}" style="${SF}font-size:8.5px;fill:${TXT}">Adversarial</text>`;
+    [35,45,55,65,75].forEach(t=>{const y=ys(t);h+=`<line x1="${ml}" y1="${y.toFixed(1)}" x2="${ml+cW}" y2="${y.toFixed(1)}" stroke="${GRID}" stroke-width="0.6"/>`;h+=`<text x="${(ml-6).toFixed(1)}" y="${(y+3.5).toFixed(1)}" text-anchor="end" style="${SF}font-size:9px;fill:${TXT}">${t}</text>`;});
+    Sl.forEach((l,i)=>h+=`<text x="${xs(i).toFixed(1)}" y="${(mt+ch+13).toFixed(1)}" text-anchor="middle" style="${SF}font-size:9px;fill:${TXT}">${l}</text>`);
+    h+=`<line x1="${ml}" y1="${mt}" x2="${ml}" y2="${mt+ch}" stroke="${AX}" stroke-width="0.6"/>`;
+    h+=`<line x1="${ml}" y1="${mt+ch}" x2="${ml+cW}" y2="${mt+ch}" stroke="${AX}" stroke-width="0.6"/>`;
+    h+=`<text transform="rotate(-90)" x="${-(mt+ch/2)}" y="${ml-40}" text-anchor="middle" style="${GF}font-size:9.5px;fill:${TXT}">Representational Power P</text>`;
+    h+=`<text x="${(ml+cW/2).toFixed(0)}" y="${(mt+ch+30).toFixed(0)}" text-anchor="middle" style="${GF}font-size:9.5px;fill:${TXT}">Sparsity S</text>`;
+    function line(data,col){const pts=data.map((_,i)=>[xs(i),ys(data[i])]);h+=`<polyline points="${pts.map(([x,y])=>`${x.toFixed(1)},${y.toFixed(1)}`).join(' ')}" fill="none" stroke="${col}" stroke-width="1.5" stroke-linejoin="round"/>`;pts.forEach(([x,y])=>h+=`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3.2" fill="${col}" stroke="white" stroke-width="0.8"/>`);}
+    line(rep_c,CLN);line(rep_a,ADV);
+    document.getElementById('fig1').innerHTML=h;
+  })();
+
+  // ── FIG 2: Feature drops S3 ─────────────────────────
+  (function(){
+    const W=600,H=220,mt=32,mb=44,ml=56,mr=24;
+    const cW=W-ml-mr,ch=H-mt-mb;
+    const ymax=62,ys=v=>mt+ch-(v/ymax)*ch;
+    const gW=cW/4,bW=34,gap=7;
+    let h='';
+    h+=`<rect x="${ml}" y="${mt}" width="${cW}" height="${ch}" fill="white"/>`;
+    h+=`<rect x="${ml+cW-178}" y="${mt-22}" width="12" height="12" fill="${CLN}" opacity="0.88"/>`;
+    h+=`<text x="${ml+cW-162}" y="${mt-12}" style="${SF}font-size:8.5px;fill:${TXT}">Standard</text>`;
+    h+=`<rect x="${ml+cW-95}" y="${mt-22}" width="12" height="12" fill="${ADV}" opacity="0.88"/>`;
+    h+=`<text x="${ml+cW-79}" y="${mt-12}" style="${SF}font-size:8.5px;fill:${TXT}">Adversarial</text>`;
+    [0,15,30,45,60].forEach(t=>{const y=ys(t);h+=`<line x1="${ml}" y1="${y.toFixed(1)}" x2="${ml+cW}" y2="${y.toFixed(1)}" stroke="${GRID}" stroke-width="0.6"/>`;h+=`<text x="${(ml-6).toFixed(1)}" y="${(y+3.5).toFixed(1)}" text-anchor="end" style="${SF}font-size:9px;fill:${TXT}">${t}</text>`;});
+    h+=`<line x1="${ml}" y1="${mt}" x2="${ml}" y2="${mt+ch}" stroke="${AX}" stroke-width="0.6"/>`;
+    h+=`<line x1="${ml}" y1="${mt+ch}" x2="${ml+cW}" y2="${mt+ch}" stroke="${AX}" stroke-width="0.6"/>`;
+    h+=`<text transform="rotate(-90)" x="${-(mt+ch/2)}" y="${ml-40}" text-anchor="middle" style="${GF}font-size:9.5px;fill:${TXT}">Features Dropped</text>`;
+    h+=`<text x="${(ml+cW/2).toFixed(0)}" y="${(mt+ch+30).toFixed(0)}" text-anchor="middle" style="${GF}font-size:9.5px;fill:${TXT}">Sparsity S</text>`;
+    Sl.forEach((l,i)=>{const cx=ml+i*gW+gW/2,x1=cx-gap/2-bW,x2=cx+gap/2;const hc=(drp_c_s3[i]/ymax)*ch,ha=(drp_a_s3[i]/ymax)*ch;h+=`<rect x="${x1.toFixed(1)}" y="${ys(drp_c_s3[i]).toFixed(1)}" width="${bW}" height="${hc.toFixed(1)}" fill="${CLN}" opacity="0.88"/>`;h+=`<rect x="${x2.toFixed(1)}" y="${ys(drp_a_s3[i]).toFixed(1)}" width="${bW}" height="${ha.toFixed(1)}" fill="${ADV}" opacity="0.88"/>`;h+=`<text x="${(x1+bW/2).toFixed(1)}" y="${(ys(drp_c_s3[i])-4).toFixed(1)}" text-anchor="middle" style="${SF}font-size:8px;fill:${TXT}">${drp_c_s3[i]}</text>`;h+=`<text x="${(x2+bW/2).toFixed(1)}" y="${(ys(drp_a_s3[i])-4).toFixed(1)}" text-anchor="middle" style="${SF}font-size:8px;fill:${TXT}">${drp_a_s3[i]}</text>`;h+=`<text x="${cx.toFixed(1)}" y="${(mt+ch+13).toFixed(1)}" text-anchor="middle" style="${SF}font-size:9px;fill:${TXT}">${l}</text>`;});
+    document.getElementById('fig2').innerHTML=h;
+  })();
+
+  // ── FIG 3: Interference S3 ──────────────────────────
+  (function(){
+    const W=600,H=220,mt=32,mb=44,ml=56,mr=24;
+    const cW=W-ml-mr,ch=H-mt-mb;
+    const ymin=-1.6,ymax=0.8,ys=v=>mt+ch-(v-ymin)/(ymax-ymin)*ch;
+    const y0=ys(0);
+    const xs=i=>ml+(i/3)*cW;
+    let h='';
+    h+=`<rect x="${ml}" y="${mt}" width="${cW}" height="${ch}" fill="white"/>`;
+    h+=`<line x1="${ml}" y1="${mt-18}" x2="${ml+18}" y2="${mt-18}" stroke="${CLN}" stroke-width="1.5"/>`;
+    h+=`<circle cx="${ml+9}" cy="${mt-18}" r="2.8" fill="${CLN}"/>`;
+    h+=`<text x="${ml+23}" y="${mt-14}" style="${SF}font-size:8.5px;fill:${TXT}">Kept</text>`;
+    h+=`<line x1="${ml+62}" y1="${mt-18}" x2="${ml+80}" y2="${mt-18}" stroke="${ADV}" stroke-width="1.5"/>`;
+    h+=`<circle cx="${ml+71}" cy="${mt-18}" r="2.8" fill="${ADV}"/>`;
+    h+=`<text x="${ml+85}" y="${mt-14}" style="${SF}font-size:8.5px;fill:${TXT}">Dropped</text>`;
+    [-1.5,-1.0,-0.5,0,0.5].forEach(t=>{const y=ys(t);h+=`<line x1="${ml}" y1="${y.toFixed(1)}" x2="${ml+cW}" y2="${y.toFixed(1)}" stroke="${t===0?'rgba(0,0,0,0.18)':GRID}" stroke-width="${t===0?'0.9':'0.6'}"/>`;h+=`<text x="${(ml-6).toFixed(1)}" y="${(y+3.5).toFixed(1)}" text-anchor="end" style="${SF}font-size:9px;fill:${TXT}">${t.toFixed(1)}</text>`;});
+    Sl.forEach((l,i)=>h+=`<text x="${xs(i).toFixed(1)}" y="${(mt+ch+13).toFixed(1)}" text-anchor="middle" style="${SF}font-size:9px;fill:${TXT}">${l}</text>`);
+    h+=`<line x1="${ml}" y1="${mt}" x2="${ml}" y2="${mt+ch}" stroke="${AX}" stroke-width="0.6"/>`;
+    h+=`<line x1="${ml}" y1="${mt+ch}" x2="${ml+cW}" y2="${mt+ch}" stroke="${AX}" stroke-width="0.6"/>`;
+    h+=`<text transform="rotate(-90)" x="${-(mt+ch/2)}" y="${ml-40}" text-anchor="middle" style="${GF}font-size:9.5px;fill:${TXT}">Mean Interference</text>`;
+    h+=`<text x="${(ml+cW/2).toFixed(0)}" y="${(mt+ch+30).toFixed(0)}" text-anchor="middle" style="${GF}font-size:9.5px;fill:${TXT}">Sparsity S</text>`;
+    function line(data,col){const pts=data.map((_,i)=>[xs(i),ys(data[i])]);h+=`<polyline points="${pts.map(([x,y])=>`${x.toFixed(1)},${y.toFixed(1)}`).join(' ')}" fill="none" stroke="${col}" stroke-width="1.5" stroke-linejoin="round"/>`;pts.forEach(([x,y])=>h+=`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3.2" fill="${col}" stroke="white" stroke-width="0.8"/>`);}
+    line(drop_a_s3,ADV);line(kept_a_s3,CLN);
+    document.getElementById('fig3').innerHTML=h;
+  })();
+
+  // ── FIG 4: Feature drops S4 (small panel) ───────────
+  (function(){
+    const W=290,H=210,mt=32,mb=42,ml=46,mr=10;
+    const cW=W-ml-mr,ch=H-mt-mb;
+    const ymax=75,ys=v=>mt+ch-(v/ymax)*ch;
+    const gW=cW/4,bW=22,gap=5;
+    let h='';
+    h+=`<rect x="${ml}" y="${mt}" width="${cW}" height="${ch}" fill="white"/>`;
+    h+=`<rect x="${ml}" y="${mt-22}" width="10" height="10" fill="${CLN}" opacity="0.88"/>`;
+    h+=`<text x="${ml+14}" y="${mt-13}" style="${SF}font-size:8px;fill:${TXT}">Standard</text>`;
+    h+=`<rect x="${ml+72}" y="${mt-22}" width="10" height="10" fill="${ADV}" opacity="0.88"/>`;
+    h+=`<text x="${ml+86}" y="${mt-13}" style="${SF}font-size:8px;fill:${TXT}">Adversarial</text>`;
+    [0,15,30,45,60,75].forEach(t=>{const y=ys(t);h+=`<line x1="${ml}" y1="${y.toFixed(1)}" x2="${ml+cW}" y2="${y.toFixed(1)}" stroke="${GRID}" stroke-width="0.6"/>`;h+=`<text x="${(ml-5).toFixed(1)}" y="${(y+3.5).toFixed(1)}" text-anchor="end" style="${SF}font-size:8px;fill:${TXT}">${t}</text>`;});
+    h+=`<line x1="${ml}" y1="${mt}" x2="${ml}" y2="${mt+ch}" stroke="${AX}" stroke-width="0.5"/>`;
+    h+=`<line x1="${ml}" y1="${mt+ch}" x2="${ml+cW}" y2="${mt+ch}" stroke="${AX}" stroke-width="0.5"/>`;
+    h+=`<text transform="rotate(-90)" x="${-(mt+ch/2)}" y="${ml-34}" text-anchor="middle" style="${GF}font-size:8.5px;fill:${TXT}">Features Dropped</text>`;
+    h+=`<text x="${(ml+cW/2).toFixed(0)}" y="${(mt+ch+28).toFixed(0)}" text-anchor="middle" style="${GF}font-size:8.5px;fill:${TXT}">Sparsity S</text>`;
+    Sl.forEach((l,i)=>{const cx=ml+i*gW+gW/2,x1=cx-gap/2-bW,x2=cx+gap/2;const hc=(drp_c_s4[i]/ymax)*ch,ha=(drp_a_s4[i]/ymax)*ch;
+      if(drp_c_s4[i]>0){h+=`<rect x="${x1.toFixed(1)}" y="${ys(drp_c_s4[i]).toFixed(1)}" width="${bW}" height="${hc.toFixed(1)}" fill="${CLN}" opacity="0.88"/>`;h+=`<text x="${(x1+bW/2).toFixed(1)}" y="${(ys(drp_c_s4[i])-3).toFixed(1)}" text-anchor="middle" style="${SF}font-size:7.5px;fill:${TXT}">${drp_c_s4[i]}</text>`;}
+      h+=`<rect x="${x2.toFixed(1)}" y="${ys(drp_a_s4[i]).toFixed(1)}" width="${bW}" height="${ha.toFixed(1)}" fill="${ADV}" opacity="0.88"/>`;
+      h+=`<text x="${(x2+bW/2).toFixed(1)}" y="${(ys(drp_a_s4[i])-3).toFixed(1)}" text-anchor="middle" style="${SF}font-size:7.5px;fill:${TXT}">${drp_a_s4[i]}</text>`;
+      h+=`<text x="${cx.toFixed(1)}" y="${(mt+ch+13).toFixed(1)}" text-anchor="middle" style="${SF}font-size:8px;fill:${TXT}">${l}</text>`;});
+    document.getElementById('fig4').innerHTML=h;
+  })();
+
+  // ── FIG 5: Interference S4 (small panel) ────────────
+  (function(){
+    const W=290,H=210,mt=32,mb=42,ml=46,mr=10;
+    const cW=W-ml-mr,ch=H-mt-mb;
+    const ymin=-1.8,ymax=2.2,ys=v=>mt+ch-(v-ymin)/(ymax-ymin)*ch;
+    const xs=i=>ml+(i/3)*cW;
+    let h='';
+    h+=`<rect x="${ml}" y="${mt}" width="${cW}" height="${ch}" fill="white"/>`;
+    h+=`<line x1="${ml}" y1="${mt-18}" x2="${ml+15}" y2="${mt-18}" stroke="${CLN}" stroke-width="1.5"/>`;
+    h+=`<circle cx="${ml+7}" cy="${mt-18}" r="2.5" fill="${CLN}"/>`;
+    h+=`<text x="${ml+19}" y="${mt-14}" style="${SF}font-size:8px;fill:${TXT}">Kept</text>`;
+    h+=`<line x1="${ml+58}" y1="${mt-18}" x2="${ml+73}" y2="${mt-18}" stroke="${ADV}" stroke-width="1.5"/>`;
+    h+=`<circle cx="${ml+65}" cy="${mt-18}" r="2.5" fill="${ADV}"/>`;
+    h+=`<text x="${ml+77}" y="${mt-14}" style="${SF}font-size:8px;fill:${TXT}">Dropped</text>`;
+    [-1,0,1,2].forEach(t=>{const y=ys(t);h+=`<line x1="${ml}" y1="${y.toFixed(1)}" x2="${ml+cW}" y2="${y.toFixed(1)}" stroke="${t===0?'rgba(0,0,0,0.15)':GRID}" stroke-width="${t===0?'0.8':'0.6'}"/>`;h+=`<text x="${(ml-5).toFixed(1)}" y="${(y+3.5).toFixed(1)}" text-anchor="end" style="${SF}font-size:8px;fill:${TXT}">${t}</text>`;});
+    Sl.forEach((l,i)=>h+=`<text x="${xs(i).toFixed(1)}" y="${(mt+ch+13).toFixed(1)}" text-anchor="middle" style="${SF}font-size:8px;fill:${TXT}">${l}</text>`);
+    h+=`<line x1="${ml}" y1="${mt}" x2="${ml}" y2="${mt+ch}" stroke="${AX}" stroke-width="0.5"/>`;
+    h+=`<line x1="${ml}" y1="${mt+ch}" x2="${ml+cW}" y2="${mt+ch}" stroke="${AX}" stroke-width="0.5"/>`;
+    h+=`<text transform="rotate(-90)" x="${-(mt+ch/2)}" y="${ml-34}" text-anchor="middle" style="${GF}font-size:8.5px;fill:${TXT}">Mean Interference</text>`;
+    h+=`<text x="${(ml+cW/2).toFixed(0)}" y="${(mt+ch+28).toFixed(0)}" text-anchor="middle" style="${GF}font-size:8.5px;fill:${TXT}">Sparsity S</text>`;
+    function line(data,col){const pts=data.map((_,i)=>[xs(i),ys(data[i])]);h+=`<polyline points="${pts.map(([x,y])=>`${x.toFixed(1)},${y.toFixed(1)}`).join(' ')}" fill="none" stroke="${col}" stroke-width="1.5" stroke-linejoin="round"/>`;pts.forEach(([x,y])=>h+=`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3" fill="${col}" stroke="white" stroke-width="0.8"/>`);}
+    line(drop_a_s4,ADV);line(kept_a_s4,CLN);
+    document.getElementById('fig5').innerHTML=h;
+  })();
+
+  // ── FIG 6: Heatmap ──────────────────────────────────
+  (function(){
+    const NR={'0.78':new Set([75,7,33,10,72,88,62,31,49,21,44,40,8,34,79,80,41,74,90,46,50,98,17,96,92,54,3,71,68,13,61,22,55,45,57,5,97,2,60,30,1,70,91,99,94,87,27,16,58,76,9,18,29,78,25,67,89,69,52,35,51,24,15,93,14,12,48,82,19,0]),'0.80':new Set([37,93,50,99,48,12,15,68,64,33,94,7,65,52,49,92,42,81,11,76,72,62,3,69,67,2,43,83,75,58,95,28,16,32,71,74,9,6,40,73,29,22,30,14,60,86,85,25,66,35,80,13,79,4,38,98,63,89,45,41,8,53,78,24,17,59,23,56,0,18]),'0.88':new Set([6,56,21,5,8,11,69,13,98,52,28,26,1,35,39,66,71,80,12,36,57,90,37,43,50,54,27,23,32,48,99,29,34,15,58,41,79,45,2,88,93,55,53,77,20,76,30,65,46,10,64,17,38,4,61,83,49,72,81,86,31,18,9,62,95,60,33,75,89,40]),'0.90':new Set([92,74,13,85,46,24,0,79,61,42,33,97,62,96,63,27,99,52,34,19,22,60,10,29,73,77,32,94,76,18,38,7,20,86,39,47,98,44,6,43,50,4,15,23,28,64,9,36,70,57,25,2,78,89,65,81,49,56,41,30,59,54,5,88,8,66,67,95,16,71])};
+    const MASK={'0.78':[0,0,0,0,1,0,1,0,0,0,0,1,0,0,0,0,0,0,0,0,1,0,0,1,0,0,1,0,1,0,0,0,1,0,0,0,1,1,1,1,0,0,1,1,0,0,0,1,0,0,0,0,0,1,0,0,1,0,0,1,0,0,0,1,1,1,1,0,0,0,0,0,0,1,0,0,0,1,0,0,0,1,0,1,1,1,1,0,0,0,0,0,0,0,0,1,0,0,0,0],'0.80':[0,1,0,0,0,1,0,0,0,0,1,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,1,1,0,0,0,1,0,0,1,0,1,0,0,1,0,0,0,0,1,0,1,1,0,0,0,1,0,0,1,1,0,1,0,0,0,1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,1,0,0,0,0,1,0,1,0,0,1,1,0,1,1,0,0,0,0,1,1,0,0],'0.88':[1,0,0,1,0,0,0,1,0,0,0,0,0,0,1,0,1,0,0,1,0,0,1,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,0,0,1,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,1,0,0,0,1,1,0,1,0,0,1,1,0,0,0,1,0,0,0,1,0,1,1,0,1,0,0,0,1,1,0,1,0,1,1,0,0],'0.90':[0,1,0,1,0,0,0,0,0,0,0,1,1,0,1,0,0,1,0,0,0,1,0,0,0,0,1,0,0,0,0,1,0,0,0,1,0,1,0,0,1,0,0,0,0,1,0,0,1,0,0,1,0,1,0,1,0,0,1,0,0,0,0,0,0,0,0,0,1,1,0,0,1,0,0,1,0,0,0,0,1,0,1,1,1,0,0,1,0,0,1,1,0,1,0,0,0,0,0,0]};
+    const N=100,ml=115,mr=12,mt=38,mb=28;
+    const rowH=16,rowGap=4,groupGap=18;
+    const cW_total=640,cW=cW_total-ml-mr,cellW=cW/N;
+    const totalH=mt+Sl.length*(2*rowH+rowGap+groupGap)-groupGap+mb;
+    const svg=document.getElementById('fig6');
+    svg.setAttribute('viewBox',`0 0 ${cW_total} ${totalH}`);
+    let h='';
+    h+=`<rect x="${ml}" y="${mt-28}" width="11" height="11" fill="${CLN}" opacity="0.88"/>`;
+    h+=`<text x="${ml+15}" y="${mt-19}" style="${SF}font-size:8.5px;fill:#666">Robust / kept</text>`;
+    h+=`<rect x="${ml+118}" y="${mt-28}" width="11" height="11" fill="${ADV}" opacity="0.88"/>`;
+    h+=`<text x="${ml+133}" y="${mt-19}" style="${SF}font-size:8.5px;fill:#666">Non-robust / dropped</text>`;
+    [0,10,20,30,40,50,60,70,80,90,99].forEach(i=>{const x=ml+i*cellW+cellW/2;h+=`<text x="${x.toFixed(1)}" y="${mt-6}" text-anchor="middle" style="${SF}font-size:7.5px;fill:#bbb">${i}</text>`;});
+    h+=`<text x="${(ml+cW/2).toFixed(0)}" y="${totalH-5}" text-anchor="middle" style="${SF}font-size:9px;fill:#888">Feature index</text>`;
+    Sl.forEach((s,gi)=>{
+      const y0=mt+gi*(2*rowH+rowGap+groupGap),yGT=y0,yMod=y0+rowH+rowGap;
+      h+=`<text x="${ml-8}" y="${(yGT+rowH/2+3).toFixed(1)}" text-anchor="end" style="${SF}font-size:8px;fill:#777">GT (S=${s})</text>`;
+      h+=`<text x="${ml-8}" y="${(yMod+rowH/2+3).toFixed(1)}" text-anchor="end" style="${SF}font-size:8px;fill:#777">Model (S=${s})</text>`;
+      const nr=NR[s],mask=MASK[s];
+      for(let i=0;i<N;i++){const x=(ml+i*cellW).toFixed(1),w=(cellW-0.3).toFixed(1);h+=`<rect x="${x}" y="${yGT}" width="${w}" height="${rowH}" fill="${nr.has(i)?ADV:CLN}" opacity="0.85"/>`;h+=`<rect x="${x}" y="${yMod}" width="${w}" height="${rowH}" fill="${mask[i]===0?ADV:CLN}" opacity="0.85"/>`;}
+      h+=`<rect x="${ml}" y="${y0}" width="${cW}" height="${2*rowH+rowGap}" fill="none" stroke="rgba(0,0,0,0.08)" stroke-width="0.5"/>`;
+    });
+    svg.innerHTML=h;
+  })();
+})();
+</script>
