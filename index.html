@@ -102,7 +102,7 @@ pre.code{font-family:'Courier New',Courier,monospace;font-size:8.3pt;background:
 <p>We instantiate this taxonomy as follows. Let $x \sim \mathcal{U}([0,1]^m)$ with the sparsity mask of §1.1 applied. A uniformly random permutation $\pi$ of $\{1, \ldots, m\}$ partitions the feature indices into a robust set $\mathcal{R} = \{\pi(1), \ldots, \pi(n_r)\}$ and a non-robust set $\mathcal{N} = \{\pi(n_r + 1), \ldots, \pi(m)\}$, with $|\mathcal{R}| = n_r$ and $|\mathcal{N}| = m - n_r$. Each partition is then amplitude-scaled according to:</p>
 <table class="eq"><tr><td class="eqc">\[ x_{:,i} \;\leftarrow\; \begin{cases} a_r \cdot x_{:,i} & i \in \mathcal{R} \\ a_{nr} \cdot x_{:,i} & i \in \mathcal{N} \end{cases} \]</td><td class="eqn">(7)</td></tr></table>
 <p>with $a_r = 6.0$ and $a_{nr} = 0.2$. Robust features thus carry high amplitude—strong, stable signal—while non-robust features carry low amplitude, making them more susceptible to erasure under $\ell_2$ perturbations. The partition $(\mathcal{R}, \mathcal{N})$ is retained at generation time and serves as the ground truth against which the model's dropped feature indices are evaluated. The full data generation procedure is given below.</p>
-<pre class="code">def create_data(sparsity, num_samples, n_features=100, n_robust=65):
+<pre class="code">def create_data(sparsity, num_samples, n_features=100, n_robust=30):
     values = torch.rand(num_samples, n_features)
     mask = values > sparsity
     x = values * mask.float()
@@ -112,7 +112,7 @@ pre.code{font-family:'Courier New',Courier,monospace;font-size:8.3pt;background:
     x[:, robust_idx]     *= 6.0
     x[:, non_robust_idx] *= 0.2
     return x, x.clone(), robust_idx, non_robust_idx</pre>
-<p>To remain consistent with the definition of Li &amp; Li (2025), we set $|\mathcal{N}| > |\mathcal{R}|$, making non-robust features denser than robust ones.</p>
+<p>To remain consistent with the definition of Li &amp; Li (2025), we set $|\mathcal{N}| > |\mathcal{R}|$, making non-robust features denser than robust ones. We note that normal models can be sensitive to the amplitude ratio between robust and non-robust features; the specific values ($a_r = 6.0$, $a_{nr} = 0.2$) were chosen to reflect the signal-to-noise distinction while maintaining numerical stability during training.</p>
 
 <h3 class="sub">4.2 Results</h3>
 <p>Training on data generated via (7), we obtain the same findings as in Section 3. The structured data, however, yields a substantially cleaner pattern: the adversarially trained model drops exactly $|\mathcal{N}| = 70$ features at every $S \in \mathcal{S}$, regardless of sparsity level. Notably, at $S \in \{0.88,\, 0.90\}$, the standardly trained model drops no features at all—yet the adversarially trained model still drops exactly $|\mathcal{N}|$—indicating that, despite the model having enough sparsity to represent all features, adversarial training remains highly sensitive to non-robust features. This sensitivity being sparsity-invariant suggests that those features directly interfere with the model's ultimate goal:</p>
